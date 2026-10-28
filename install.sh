@@ -119,6 +119,8 @@ $dst = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
 $reg = 'HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
 New-Item -ItemType Directory -Force -Path $dst | Out-Null
 Get-ChildItem -Path $Src -Filter *.ttf | ForEach-Object {
+  $target = Join-Path $dst $_.Name
+  if (Test-Path $target) { return }   # já instalada (e possivelmente em uso)
   Copy-Item $_.FullName -Destination $dst -Force
   New-ItemProperty -Path $reg -Name ($_.BaseName + ' (TrueType)') `
     -Value (Join-Path $dst $_.Name) -PropertyType String -Force | Out-Null
