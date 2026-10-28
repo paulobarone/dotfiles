@@ -364,6 +364,32 @@ setup_docker() {
   fi
 }
 
+# ---------- Dica final: tema do terminal -------------------------------------
+show_theme_tip() {
+  local Y=$'\033[1;33m' C=$'\033[1;36m' B=$'\033[1m' R=$'\033[0m' INV=$'\033[1;30;43m'
+  local line="════════════════════════════════════════════════════════════"
+
+  echo
+  printf '%s\n' "${Y}${line}${R}"
+  printf '%s\n' "${INV}             🎨  TROQUE O TEMA DO TERMINAL  🎨              ${R}"
+  printf '%s\n' "${Y}${line}${R}"
+  echo
+  printf '  %s\n' "${B}O tema atual é o Nord. Para escolher outro:${R}"
+  echo
+  printf '  %s\n' "${Y}1.${R} Feche e abra o Alacritty"
+  printf '  %s\n' "${Y}2.${R} Veja os temas disponíveis:"
+  printf '       %s\n' "${C}atheme${R}"
+  printf '  %s\n' "${Y}3.${R} Aplique um tema (muda na hora):"
+  printf '       %s\n' "${C}atheme tokyo_night${R}"
+  printf '       %s\n' "${C}atheme catppuccin_mocha${R}"
+  printf '       %s\n' "${C}atheme dracula${R}"
+  echo
+  printf '  %s\n' "Prévias: ${C}https://github.com/alacritty/alacritty-theme${R}"
+  echo
+  printf '%s\n' "${Y}${line}${R}"
+  echo
+}
+
 # ---------- Main -------------------------------------------------------------
 main() {
   preflight
@@ -380,6 +406,7 @@ main() {
   ok "Setup concluído!"
   [[ -d "$BACKUP_DIR" ]] && info "Backups em: $BACKUP_DIR"
   info "Feche e reabra o Alacritty para aplicar fonte e config."
+  show_theme_tip
 }
 
 main "$@"
