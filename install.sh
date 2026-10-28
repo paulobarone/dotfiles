@@ -20,7 +20,6 @@ ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH_DIR/custom}"
 DISTRO=""        # arch | debian | fedora
 GIT_NAME=""
 GIT_EMAIL=""
-GIT_EDITOR=""
 DOCKER_MODE=""   # desktop | native | none
 
 # ---------- Helpers ----------------------------------------------------------
@@ -137,16 +136,14 @@ ask_questions() {
   echo
 
   # Git (usa os valores atuais como padrão, se existirem)
-  local cur_name="" cur_email="" cur_editor=""
+  local cur_name="" cur_email=""
   if command -v git >/dev/null; then
     cur_name="$(git config --global user.name 2>/dev/null || true)"
     cur_email="$(git config --global user.email 2>/dev/null || true)"
-    cur_editor="$(git config --global core.editor 2>/dev/null || true)"
   fi
   echo "  Git:"
   GIT_NAME="$(ask_required "Nome para commits" "$cur_name")"
   GIT_EMAIL="$(ask_required "E-mail para commits" "$cur_email")"
-  GIT_EDITOR="$(ask "Editor do git" "${cur_editor:-code --wait}")"
   echo
 
   # Docker
@@ -166,7 +163,7 @@ ask_questions() {
   echo
   printf '\033[1m== Resumo ==\033[0m\n'
   echo "  Distro:  $DISTRO"
-  echo "  Git:     $GIT_NAME <$GIT_EMAIL> (editor: $GIT_EDITOR)"
+  echo "  Git:     $GIT_NAME <$GIT_EMAIL>"
   echo "  Docker:  $DOCKER_MODE"
   echo
   local confirm
@@ -189,13 +186,13 @@ install_packages() {
   info "Instalando pacotes ($DISTRO)..."
   case "$DISTRO" in
     arch)
-      sudo pacman -Syu --needed --noconfirm git curl unzip zsh tmux starship eza ;;
+      sudo pacman -Syu --needed --noconfirm git curl unzip zsh tmux starship eza micro ;;
     debian)
       sudo apt-get update
-      sudo apt-get install -y git curl unzip zsh tmux
+      sudo apt-get install -y git curl unzip zsh tmux micro
       sudo apt-get install -y eza 2>/dev/null || true ;;
     fedora)
-      sudo dnf install -y git curl unzip zsh tmux
+      sudo dnf install -y git curl unzip zsh tmux micro
       sudo dnf install -y eza 2>/dev/null || true ;;
   esac
 
@@ -221,7 +218,6 @@ setup_git() {
 
   git config --global user.name  "$GIT_NAME"
   git config --global user.email "$GIT_EMAIL"
-  git config --global core.editor "$GIT_EDITOR"
   git config --global init.defaultBranch main
   git config --global --get pull.rebase >/dev/null || git config --global pull.rebase false
 
@@ -246,6 +242,7 @@ setup_zsh() {
 
   link "$DOTFILES/.zshrc"        "$HOME/.zshrc"
   link "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
+  link "$DOTFILES/micro/settings.json" "$HOME/.config/micro/settings.json"
   mkdir -p "$HOME/Projects"   # o .zshrc faz cd ~/Projects
 
   local zsh_path; zsh_path="$(command -v zsh)"

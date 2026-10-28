@@ -5,14 +5,14 @@
 TERM = "xterm-256color"
 
 [general]
-import = ["~/AppData/Roaming/alacritty/themes/themes/dracula_plus.toml"]
+import = ["~/AppData/Roaming/alacritty/themes/themes/nord.toml"]
 
 [window]
 dimensions = { columns = 100, lines = 20 }
 dynamic_padding = true
 padding.x = 12
 padding.y = 12
-opacity = 0.95
+opacity = 0.9
 
 [font]
 size = 10

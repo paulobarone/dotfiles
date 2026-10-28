@@ -20,7 +20,8 @@ eval "$(starship init zsh)"
 
 cd ~/Projects
 
-export EDITOR="code"
+export EDITOR="micro"
+export MICRO_TRUECOLOR=1
 
 # Palavras param em / - . _ etc. (Ctrl+Backspace, Ctrl+Delete, Ctrl+setas)
 WORDCHARS=''
