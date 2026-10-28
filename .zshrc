@@ -22,7 +22,9 @@ cd ~/Projects
 
 export EDITOR="code"
 
-bindkey '^H' backward-delete-word
+# Palavras param em / - . _ etc. (Ctrl+Backspace, Ctrl+Delete, Ctrl+setas)
+WORDCHARS=''
+
 bindkey '^[[3;5~' kill-word
 bindkey '^[[1;5C' forward-word
 bindkey '^[[1;5D' backward-word

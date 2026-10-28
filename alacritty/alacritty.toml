@@ -1,17 +1,18 @@
+# Alacritty nativo do Windows, usando o Arch no WSL como shell.
+# {{WSL_DISTRO}} é substituído pelo install.sh com o nome da sua distro.
+
 [env]
 TERM = "xterm-256color"
 
 [general]
-import = ["~/.config/alacritty/themes/themes/nord.toml"]
+import = ["~/AppData/Roaming/alacritty/themes/themes/nord.toml"]
 
 [window]
 dimensions = { columns = 100, lines = 20 }
-decorations = "Buttonless"
 dynamic_padding = true
 padding.x = 12
 padding.y = 12
 opacity = 0.9
-blur = true
 
 [font]
 size = 10
@@ -30,6 +31,8 @@ unfocused_hollow = true
 bindings = [
   { key = "V", mods = "Control|Shift", action = "Paste" },
   { key = "V", mods = "Control", action = "Paste" },
+  # Ctrl+Backspace apaga a palavra anterior (envia ^W)
+  { key = "Back", mods = "Control", chars = "\u0017" },
 ]
 
 [scrolling]
@@ -44,7 +47,7 @@ bindings = [
 [hints]
 [[hints.enabled]]
 regex = "(https?://|www\\.)[^\\s]+"
-command = "xdg-open"
+command = "explorer.exe"
 mouse = { enabled = true, mods = "Control" }
 
 [selection]
@@ -52,4 +55,4 @@ semantic_escape_chars = ",│`|:\"' ()[]{}<>\t"
 save_to_clipboard = true
 
 [terminal]
-shell = { program = "/bin/zsh", args = ["-i", "-c", "/home/paulobarone/.tmux-sessions.sh"] }
+shell = { program = "wsl.exe", args = ["-d", "{{WSL_DISTRO}}", "--cd", "~", "--", "zsh", "-i", "-c", "~/.tmux-sessions.sh"] }
