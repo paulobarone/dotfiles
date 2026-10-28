@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# install.sh — dotfiles (Arch Linux no WSL + Alacritty nativo do Windows)
+# install.sh — dotfiles para WSL + Alacritty nativo do Windows
+# Distros suportadas: Arch, Ubuntu/Debian, Fedora
 #
 # Uso:
-#   git clone git@github.com:paulobarone/dotfiles.git ~/dotfiles
-#   cd ~/dotfiles && ./install.sh [--skip-docker]
+#   git clone https://github.com/<usuario>/dotfiles.git ~/dotfiles
+#   cd ~/dotfiles && ./install.sh
+#
+# O script faz todas as perguntas no início e depois roda sozinho.
 # =============================================================================
 set -euo pipefail
 
@@ -13,23 +16,60 @@ BACKUP_DIR="$HOME/.dotfiles_backup/$(date +%Y%m%d_%H%M%S)"
 ZSH_DIR="$HOME/.oh-my-zsh"
 ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH_DIR/custom}"
 
-PACKAGES=(
-  base-devel git curl unzip
-  zsh tmux starship eza
-  docker docker-compose docker-buildx
-)
+# Respostas do usuário (preenchidas em ask_questions)
+DISTRO=""        # arch | debian | fedora
+GIT_NAME=""
+GIT_EMAIL=""
+GIT_EDITOR=""
+DOCKER_MODE=""   # desktop | native | none
 
-SKIP_DOCKER=false
-[[ "${1:-}" == "--skip-docker" ]] && SKIP_DOCKER=true
-
+# ---------- Helpers ----------------------------------------------------------
 info() { printf '\033[1;34m[INFO]\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m[ OK ]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m %s\n' "$*"; }
+die()  { printf '\033[1;31m[ERRO]\033[0m %s\n' "$*" >&2; exit 1; }
 
 is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
 
 # Executa comando do Windows a partir de /mnt/c (evita aviso de caminho UNC)
 win_cmd() { (cd /mnt/c && cmd.exe /c "$@" 2>/dev/null | tr -d '\r'); }
+
+# Pergunta com valor padrão: ask "Pergunta" "padrão"
+ask() {
+  local prompt="$1" default="${2:-}" answer
+  if [[ -n "$default" ]]; then
+    read -rp "  $prompt [$default]: " answer
+  else
+    read -rp "  $prompt: " answer
+  fi
+  echo "${answer:-$default}"
+}
+
+# Pergunta obrigatória (repete até ter resposta)
+ask_required() {
+  local value=""
+  while [[ -z "$value" ]]; do
+    value="$(ask "$1" "${2:-}")"
+    [[ -z "$value" ]] && echo "  Campo obrigatório." >&2
+  done
+  echo "$value"
+}
+
+# Menu numerado: choose "Pergunta" padrão "op1" "op2" ... -> imprime o número
+choose() {
+  local prompt="$1" default="$2"; shift 2
+  local i=1 opt answer
+  echo "  $prompt" >&2
+  for opt in "$@"; do echo "    $i) $opt" >&2; i=$((i + 1)); done
+  while true; do
+    read -rp "  Escolha [$default]: " answer
+    answer="${answer:-$default}"
+    if [[ "$answer" =~ ^[0-9]+$ ]] && (( answer >= 1 && answer <= $# )); then
+      echo "$answer"; return
+    fi
+    echo "  Opção inválida." >&2
+  done
+}
 
 # Symlink com backup do que já existir
 link() {
@@ -50,41 +90,171 @@ link() {
 clone() {
   local url="$1" dst="$2"
   [[ -d "$dst/.git" ]] && { ok "Já existe: $dst"; return; }
-  git clone --depth 1 "$url" "$dst" && ok "Clonado: $dst"
+  git clone --depth 1 -q "$url" "$dst" && ok "Clonado: $dst"
 }
 
-# ---------------------------------------------------------------------------
+# Instala pacotes com o gerenciador da distro escolhida
+pkg_install() {
+  case "$DISTRO" in
+    arch)   sudo pacman -S --needed --noconfirm "$@" ;;
+    debian) sudo apt-get install -y "$@" ;;
+    fedora) sudo dnf install -y "$@" ;;
+  esac
+}
+
+# ---------- Pré-checagens ----------------------------------------------------
 preflight() {
-  [[ $EUID -ne 0 ]] || { echo "Não rode como root."; exit 1; }
-  command -v pacman >/dev/null || { echo "pacman não encontrado."; exit 1; }
-  is_wsl || { echo "Este script é para Arch no WSL."; exit 1; }
-  sudo -v
+  [[ $EUID -ne 0 ]] || die "Não rode como root. Use seu usuário (o script chama sudo quando precisa)."
+  is_wsl || die "Este script é para Linux no WSL."
+  command -v sudo >/dev/null || die "sudo não encontrado. Instale o sudo e configure seu usuário antes."
+}
+
+detect_distro() {
+  local ids
+  ids="$( . /etc/os-release 2>/dev/null; echo "${ID:-} ${ID_LIKE:-}" )"
+  case "$ids" in
+    *arch*)                   echo 1 ;;
+    *debian*|*ubuntu*)        echo 2 ;;
+    *fedora*|*rhel*|*centos*) echo 3 ;;
+    *)                        echo 1 ;;
+  esac
+}
+
+# ---------- Perguntas --------------------------------------------------------
+ask_questions() {
+  echo
+  printf '\033[1m== Configuração inicial ==\033[0m\n\n'
+
+  # Distro
+  local n
+  n="$(choose "Qual distro você está usando?" "$(detect_distro)" \
+       "Arch Linux (pacman)" "Ubuntu / Debian (apt)" "Fedora (dnf)")"
+  case "$n" in
+    1) DISTRO=arch;   command -v pacman  >/dev/null || die "pacman não encontrado nesta distro." ;;
+    2) DISTRO=debian; command -v apt-get >/dev/null || die "apt não encontrado nesta distro." ;;
+    3) DISTRO=fedora; command -v dnf     >/dev/null || die "dnf não encontrado nesta distro." ;;
+  esac
+  echo
+
+  # Git (usa os valores atuais como padrão, se existirem)
+  local cur_name="" cur_email="" cur_editor=""
+  if command -v git >/dev/null; then
+    cur_name="$(git config --global user.name 2>/dev/null || true)"
+    cur_email="$(git config --global user.email 2>/dev/null || true)"
+    cur_editor="$(git config --global core.editor 2>/dev/null || true)"
+  fi
+  echo "  Git:"
+  GIT_NAME="$(ask_required "Nome para commits" "$cur_name")"
+  GIT_EMAIL="$(ask_required "E-mail para commits" "$cur_email")"
+  GIT_EDITOR="$(ask "Editor do git" "${cur_editor:-code --wait}")"
+  echo
+
+  # Docker
+  local docker_default=2
+  [[ -d "/mnt/c/Program Files/Docker" ]] && docker_default=1
+  n="$(choose "Como você usa o Docker?" "$docker_default" \
+       "Docker Desktop no Windows (não instalar no WSL)" \
+       "Docker nativo dentro do WSL" \
+       "Não uso Docker")"
+  case "$n" in
+    1) DOCKER_MODE=desktop ;;
+    2) DOCKER_MODE=native ;;
+    3) DOCKER_MODE=none ;;
+  esac
+
+  # Resumo
+  echo
+  printf '\033[1m== Resumo ==\033[0m\n'
+  echo "  Distro:  $DISTRO"
+  echo "  Git:     $GIT_NAME <$GIT_EMAIL> (editor: $GIT_EDITOR)"
+  echo "  Docker:  $DOCKER_MODE"
+  echo
+  local confirm
+  read -rp "  Continuar? [S/n]: " confirm
+  [[ "${confirm:-S}" =~ ^[SsYy]$ ]] || die "Cancelado."
+  echo
+}
+
+# ---------- 1. Pacotes -------------------------------------------------------
+install_eza_binary() {
+  info "Instalando eza (binário oficial)..."
+  local tmp; tmp="$(mktemp -d)"
+  curl -fsSL "https://github.com/eza-community/eza/releases/latest/download/eza_$(uname -m)-unknown-linux-gnu.tar.gz" \
+    | tar -xz -C "$tmp"
+  sudo install -m 755 "$tmp/eza" /usr/local/bin/eza
+  rm -rf "$tmp"
 }
 
 install_packages() {
-  info "Instalando pacotes..."
-  sudo pacman -Syu --needed --noconfirm "${PACKAGES[@]}"
+  info "Instalando pacotes ($DISTRO)..."
+  case "$DISTRO" in
+    arch)
+      sudo pacman -Syu --needed --noconfirm git curl unzip zsh tmux starship eza ;;
+    debian)
+      sudo apt-get update
+      sudo apt-get install -y git curl unzip zsh tmux
+      sudo apt-get install -y eza 2>/dev/null || true ;;
+    fedora)
+      sudo dnf install -y git curl unzip zsh tmux
+      sudo dnf install -y eza 2>/dev/null || true ;;
+  esac
+
+  # Fallbacks para o que não existe no repositório da distro
+  if ! command -v starship >/dev/null; then
+    info "Instalando starship (script oficial)..."
+    curl -fsSL https://starship.rs/install.sh | sh -s -- -y >/dev/null
+  fi
+  command -v eza >/dev/null || install_eza_binary
+  ok "Pacotes instalados"
 }
 
+# ---------- 2. Git -----------------------------------------------------------
+setup_git() {
+  info "Configurando git..."
+
+  # Versões antigas do script linkavam ~/.gitconfig para o repo.
+  # A identidade não deve ir para o repo, então vira um arquivo local.
+  if [[ -L "$HOME/.gitconfig" ]]; then
+    rm "$HOME/.gitconfig"
+    warn "$HOME/.gitconfig era um link para o repo; agora é um arquivo local."
+  fi
+
+  git config --global user.name  "$GIT_NAME"
+  git config --global user.email "$GIT_EMAIL"
+  git config --global core.editor "$GIT_EDITOR"
+  git config --global init.defaultBranch main
+  git config --global --get pull.rebase >/dev/null || git config --global pull.rebase false
+
+  # Configs compartilhadas do repo (aliases etc.), sem identidade
+  if [[ -f "$DOTFILES/.gitconfig" ]]; then
+    if ! { git config --global --get-all include.path || true; } | grep -qxF "$DOTFILES/.gitconfig"; then
+      git config --global --add include.path "$DOTFILES/.gitconfig"
+    fi
+  fi
+  ok "Git: $GIT_NAME <$GIT_EMAIL>"
+}
+
+# ---------- 3. Zsh -----------------------------------------------------------
 setup_zsh() {
   info "Configurando zsh + Oh My Zsh..."
   if [[ ! -d "$ZSH_DIR" ]]; then
     RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
       sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
   fi
-  # Plugins de terceiros usados no .zshrc
   clone https://github.com/zsh-users/zsh-autosuggestions     "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
   clone https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
 
-  link "$DOTFILES/.zshrc"         "$HOME/.zshrc"
-  link "$DOTFILES/starship.toml"  "$HOME/.config/starship.toml"
+  link "$DOTFILES/.zshrc"        "$HOME/.zshrc"
+  link "$DOTFILES/starship.toml" "$HOME/.config/starship.toml"
   mkdir -p "$HOME/Projects"   # o .zshrc faz cd ~/Projects
 
-  if [[ "$(getent passwd "$USER" | cut -d: -f7)" != "/bin/zsh" ]]; then
-    sudo chsh -s /bin/zsh "$USER" && ok "Shell padrão: zsh"
+  local zsh_path; zsh_path="$(command -v zsh)"
+  if [[ "$(getent passwd "$USER" | cut -d: -f7)" != "$zsh_path" ]]; then
+    sudo chsh -s "$zsh_path" "$USER" && ok "Shell padrão: zsh"
   fi
 }
 
+# ---------- 4. Tmux ----------------------------------------------------------
 setup_tmux() {
   info "Configurando tmux..."
   link "$DOTFILES/.tmux.conf"        "$HOME/.tmux.conf"
@@ -93,13 +263,13 @@ setup_tmux() {
 
   # Tmuxinator só se houver projetos no repo
   if compgen -G "$DOTFILES/tmuxinator/*.yml" >/dev/null; then
-    sudo pacman -S --needed --noconfirm ruby
+    pkg_install ruby
     gem install --user-install --no-document tmuxinator
     link "$DOTFILES/tmuxinator" "$HOME/.config/tmuxinator"
   fi
 }
 
-# ---------- Fonte no Windows (MesloLGS Nerd Font Mono) ----------------------
+# ---------- 5. Fonte no Windows (MesloLGS Nerd Font Mono) ----------------------
 setup_font_windows() {
   info "Instalando MesloLGS Nerd Font no Windows..."
   local tmp_win tmp_unix
@@ -132,7 +302,7 @@ PS1
   ok "Fonte instalada no Windows"
 }
 
-# ---------- Alacritty no Windows ---------------------------------------------
+# ---------- 6. Alacritty no Windows ---------------------------------------------
 setup_alacritty() {
   info "Configurando Alacritty (Windows)..."
   local appdata dst distro
@@ -165,28 +335,27 @@ setup_alacritty() {
   fi
 }
 
-setup_git() {
-  if [[ -f "$DOTFILES/.gitconfig" ]]; then
-    link "$DOTFILES/.gitconfig" "$HOME/.gitconfig"
-  elif [[ -z "$(git config --global user.name || true)" ]]; then
-    info "Configurando git..."
-    read -rp "  Nome para commits: " name
-    read -rp "  E-mail para commits: " email
-    git config --global user.name  "$name"
-    git config --global user.email "$email"
-    git config --global init.defaultBranch main
-    git config --global core.editor "code --wait"
-    git config --global pull.rebase false
-  fi
-  ok "Git configurado"
-}
-
+# ---------- 7. Docker --------------------------------------------------------
 setup_docker() {
-  $SKIP_DOCKER && { warn "Docker pulado"; return; }
-  info "Configurando docker..."
+  case "$DOCKER_MODE" in
+    none)
+      info "Docker: não instalado (escolha do usuário)"; return ;;
+    desktop)
+      info "Docker: usando o Docker Desktop."
+      warn "No Docker Desktop, ative: Settings > Resources > WSL Integration > ${WSL_DISTRO_NAME:-sua distro}"
+      return ;;
+  esac
+
+  info "Instalando Docker nativo..."
+  if [[ "$DISTRO" == "arch" ]]; then
+    pkg_install docker docker-compose docker-buildx
+  elif ! command -v docker >/dev/null; then
+    # Script oficial (Ubuntu/Debian/Fedora): instala docker, compose e buildx
+    curl -fsSL https://get.docker.com | sudo sh
+  fi
   sudo usermod -aG docker "$USER"
 
-  if is_wsl && ! grep -qs "systemd=true" /etc/wsl.conf; then
+  if ! grep -qs "systemd=true" /etc/wsl.conf; then
     printf '\n[boot]\nsystemd=true\n' | sudo tee -a /etc/wsl.conf >/dev/null
     warn "systemd habilitado. Rode 'wsl --shutdown' no Windows, reabra e rode ./install.sh de novo."
     return
@@ -198,8 +367,11 @@ setup_docker() {
   fi
 }
 
+# ---------- Main -------------------------------------------------------------
 main() {
   preflight
+  ask_questions
+  sudo -v
   install_packages
   setup_git
   setup_zsh
