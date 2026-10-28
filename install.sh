@@ -186,13 +186,18 @@ install_packages() {
   info "Instalando pacotes ($DISTRO)..."
   case "$DISTRO" in
     arch)
-      sudo pacman -Syu --needed --noconfirm git curl unzip zsh tmux starship eza micro ;;
+      local pkgs=(git curl unzip zsh tmux starship eza micro bat nodejs npm)
+      # yarn e pnpm só se ainda não existirem (podem ter vindo do npm, o que
+      # gera conflito de arquivos com o pacman)
+      command -v pnpm >/dev/null || pkgs+=(pnpm)
+      command -v yarn >/dev/null || pkgs+=(yarn)
+      sudo pacman -Syu --needed --noconfirm "${pkgs[@]}" ;;
     debian)
       sudo apt-get update
-      sudo apt-get install -y git curl unzip zsh tmux micro
+      sudo apt-get install -y git curl unzip zsh tmux micro bat
       sudo apt-get install -y eza 2>/dev/null || true ;;
     fedora)
-      sudo dnf install -y git curl unzip zsh tmux micro
+      sudo dnf install -y git curl unzip zsh tmux micro bat
       sudo dnf install -y eza 2>/dev/null || true ;;
   esac
 
@@ -202,6 +207,11 @@ install_packages() {
     curl -fsSL https://starship.rs/install.sh | sh -s -- -y >/dev/null
   fi
   command -v eza >/dev/null || install_eza_binary
+
+  # No Ubuntu/Debian o bat se chama "batcat"; cria o atalho "bat"
+  if ! command -v bat >/dev/null && command -v batcat >/dev/null; then
+    sudo ln -sf "$(command -v batcat)" /usr/local/bin/bat
+  fi
   ok "Pacotes instalados"
 }
 
@@ -266,7 +276,50 @@ setup_tmux() {
   fi
 }
 
-# ---------- 5. Fonte no Windows (MesloLGS Nerd Font Mono) ----------------------
+# ---------- 5. Homebrew, Node e CLIs (Vercel, Supabase) ----------------------
+BREW="/home/linuxbrew/.linuxbrew/bin/brew"
+
+setup_brew() {
+  info "Configurando Homebrew..."
+  case "$DISTRO" in
+    arch)   pkg_install base-devel procps-ng file ;;
+    debian) pkg_install build-essential procps file ;;
+    fedora) sudo dnf install -y @development-tools procps-ng file ;;
+  esac
+
+  if [[ ! -x "$BREW" ]]; then
+    sudo -v   # renova o sudo: o instalador do brew precisa dele sem pedir senha
+    NONINTERACTIVE=1 /bin/bash -c \
+      "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  fi
+  # No fim do PATH: pacotes da distro continuam tendo prioridade
+  export PATH="$PATH:/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin"
+  ok "Homebrew pronto"
+}
+
+setup_dev_tools() {
+  # Node, npm, yarn e pnpm: no Arch vêm do pacman; nas outras, do brew (versões atuais)
+  if [[ "$DISTRO" != "arch" ]]; then
+    info "Instalando Node, yarn e pnpm (brew)..."
+    "$BREW" install node pnpm yarn
+  fi
+
+  # Pacotes globais do npm sem sudo
+  npm config set prefix "$HOME/.npm-global"
+  export PATH="$HOME/.npm-global/bin:$PATH"
+
+  if ! command -v vercel >/dev/null; then
+    info "Instalando Vercel CLI..."
+    npm install -g vercel
+  fi
+  if ! command -v supabase >/dev/null; then
+    info "Instalando Supabase CLI..."
+    "$BREW" install supabase/tap/supabase
+  fi
+  ok "Node $(node --version), Vercel CLI e Supabase CLI prontos"
+}
+
+# ---------- 6. Fonte no Windows (MesloLGS Nerd Font Mono) ----------------------
 setup_font_windows() {
   info "Instalando MesloLGS Nerd Font no Windows..."
   local tmp_win tmp_unix
@@ -299,7 +352,7 @@ PS1
   ok "Fonte instalada no Windows"
 }
 
-# ---------- 6. Alacritty no Windows ---------------------------------------------
+# ---------- 7. Alacritty no Windows ---------------------------------------------
 setup_alacritty() {
   info "Configurando Alacritty (Windows)..."
   local appdata dst distro
@@ -332,7 +385,7 @@ setup_alacritty() {
   fi
 }
 
-# ---------- 7. Docker --------------------------------------------------------
+# ---------- 8. Docker --------------------------------------------------------
 setup_docker() {
   case "$DOCKER_MODE" in
     none)
@@ -399,6 +452,8 @@ main() {
   setup_git
   setup_zsh
   setup_tmux
+  setup_brew
+  setup_dev_tools
   setup_font_windows
   setup_alacritty
   setup_docker

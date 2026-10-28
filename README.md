@@ -11,6 +11,11 @@ O que vem junto:
 | **Starship** | Prompt com branch do git, linguagem do projeto e outros indicadores |
 | **tmux** | Três sessões fixas (`main`, `secondary`, `third`) abertas automaticamente |
 | **eza** | `ls` com ícones e status do git |
+| **bat** | `cat` com destaque de sintaxe e números de linha |
+| **Node.js** | Com npm, yarn e pnpm |
+| **Homebrew** | Gerenciador de pacotes extra, para o que não existe na distro |
+| **Vercel CLI** | Deploy e gerenciamento de projetos na Vercel |
+| **Supabase CLI** | Banco local, migrations e deploy no Supabase |
 | **micro** | Editor de texto no terminal com atalhos comuns (Ctrl+S, Ctrl+C, Ctrl+V) |
 | **git** | Nome e e-mail configurados durante a instalação |
 | **Docker** | Opcional: nativo no WSL ou via Docker Desktop |
@@ -143,6 +148,36 @@ micro arquivo.txt
 Os atalhos são os mesmos de qualquer editor: `Ctrl+S` salva, `Ctrl+Q` sai, `Ctrl+F` busca, `Ctrl+Z` desfaz. `Ctrl+G` mostra a ajuda completa.
 
 Para trocar o tema do micro: `Ctrl+E` e digite `set colorscheme dracula-tc` (outros: `gruvbox-tc`, `monokai`, `material-tc`, `solarized-tc`).
+
+### Ver arquivos (bat)
+
+```bash
+bat arquivo.py          # mostra com cores e números de linha
+bat -p arquivo.py       # sem números e bordas (bom para copiar)
+```
+
+O bat usa as cores do tema do terminal, então acompanha o `atheme`.
+
+### Vercel e Supabase
+
+Na primeira vez, faça login em cada um:
+
+```bash
+vercel login
+supabase login
+```
+
+### Pacotes globais do npm
+
+Pacotes instalados com `npm install -g` vão para `~/.npm-global`, sem precisar de `sudo`.
+
+### Homebrew
+
+O brew fica como opção extra: os pacotes da distro (`pacman`, `apt`, `dnf`) têm prioridade. Use para o que não existir na sua distro:
+
+```bash
+brew install <pacote>
+```
 
 ### Tema do Alacritty
 

@@ -12,6 +12,18 @@ plugins=(
   extract
 )
 
+# Homebrew no fim do PATH (pacotes da distro têm prioridade)
+if [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+  export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+  export HOMEBREW_CELLAR="$HOMEBREW_PREFIX/Cellar"
+  export HOMEBREW_REPOSITORY="$HOMEBREW_PREFIX/Homebrew"
+  export PATH="$PATH:$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin"
+  export MANPATH="${MANPATH:-}:$HOMEBREW_PREFIX/share/man"
+fi
+
+# Pacotes globais do npm (instalados sem sudo)
+export PATH="$HOME/.npm-global/bin:$PATH"
+
 source $ZSH/oh-my-zsh.sh
 
 alias ls="eza --color=always --long --git --no-filesize --icons=always --no-time --no-user --no-permissions"
@@ -22,6 +34,9 @@ cd ~/Projects
 
 export EDITOR="micro"
 export MICRO_TRUECOLOR=1
+
+# bat usa as cores do tema do terminal (acompanha o atheme)
+export BAT_THEME="ansi"
 
 # Palavras param em / - . _ etc. (Ctrl+Backspace, Ctrl+Delete, Ctrl+setas)
 WORDCHARS=''
