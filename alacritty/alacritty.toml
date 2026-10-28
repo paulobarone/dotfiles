@@ -5,7 +5,7 @@
 TERM = "xterm-256color"
 
 [general]
-import = ["~/AppData/Roaming/alacritty/themes/themes/nord.toml"]
+import = ["~/AppData/Roaming/alacritty/themes/themes/iceberg.toml"]
 
 [window]
 dimensions = { columns = 100, lines = 20 }

@@ -6,7 +6,7 @@ O que vem junto:
 
 | Ferramenta | O que faz |
 |---|---|
-| **Alacritty** | Terminal rápido, rodando no Windows, com tema Nord, transparência e fonte MesloLGS Nerd Font |
+| **Alacritty** | Terminal rápido, rodando no Windows, com tema Iceberg, transparência e fonte MesloLGS Nerd Font |
 | **zsh + Oh My Zsh** | Shell com autosugestões, destaque de sintaxe e plugins para git e docker |
 | **Starship** | Prompt com branch do git, linguagem do projeto e outros indicadores |
 | **tmux** | Três sessões fixas (`main`, `secondary`, `third`) abertas automaticamente |

@@ -318,7 +318,7 @@ setup_alacritty() {
   sed "s/{{WSL_DISTRO}}/$distro/" "$DOTFILES/alacritty/alacritty.toml" > "$dst/alacritty.toml"
   ok "Config em %APPDATA%\\alacritty\\alacritty.toml (distro: $distro)"
 
-  # Temas (o config importa themes/themes/nord.toml)
+  # Temas (o config importa themes/themes/<tema>.toml)
   local tmp; tmp="$(mktemp -d)"
   git clone --depth 1 -q https://github.com/alacritty/alacritty-theme "$tmp"
   mkdir -p "$dst/themes"
@@ -374,7 +374,7 @@ show_theme_tip() {
   printf '%s\n' "${INV}             🎨  TROQUE O TEMA DO TERMINAL  🎨              ${R}"
   printf '%s\n' "${Y}${line}${R}"
   echo
-  printf '  %s\n' "${B}O tema atual é o Nord. Para escolher outro:${R}"
+  printf '  %s\n' "${B}O tema atual é o Iceberg. Para escolher outro:${R}"
   echo
   printf '  %s\n' "${Y}1.${R} Feche e abra o Alacritty"
   printf '  %s\n' "${Y}2.${R} Veja os temas disponíveis:"
